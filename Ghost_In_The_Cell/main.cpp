@@ -10,11 +10,14 @@
 
 using namespace std;
 
-const string Move = "MOVE ";
-const string Wait = "WAIT";
+const string CMove = "MOVE ";
+const string CWait = "WAIT;";
+const string CMsg = "MSG ";
+const string CBomb = "BOMB ";
 
 const string Factory = "FACTORY";
 const string Troop = "TROOP";
+const string Bomb = "BOMB";
 
 const int My = 1;
 const int Enemy = -1;
@@ -117,7 +120,16 @@ public:
 	inline static const int& GetFactoryNumber() { return factoryNumber; }
 	inline static const vector<vector<int>>& GetDistance() { return distance; }
 
-	inline static const vector<Entity>& GetEntity() { return entities; }
+	inline static const vector<Entity>& GetFactory() { return factory; }
+	inline static const vector<Entity>& GetMyFactory() { return myFactory; }
+	inline static const vector<Entity>& GetEnFactory() { return enFactory; }
+	inline static const vector<Entity>& GetNeFactory() { return neFactory; }
+
+	inline static const vector<Entity>& GetMyTroop() { return myTroop; }
+	inline static const vector<Entity>& GetEnTroop() { return enTroop; }
+
+	inline static const vector<Entity>& GetMyBomb() { return myBomb; }
+	inline static const vector<Entity>& GetEnBomb() { return enBomb; }
 
 private:
 
@@ -128,14 +140,35 @@ private:
 	/// <summary>工場の間の距離</summary>
 	static vector<vector<int>> distance;
 
-	/// <summary>ユニットデータ</summary>
-	static vector<Entity> entities;
+	/// <summary>工場データ</summary>
+	static vector<Entity> factory;
+	/// <summary>自分工場データ</summary>
+	static vector<Entity> myFactory;
+	/// <summary>相手工場データ</summary>
+	static vector<Entity> enFactory;
+	/// <summary>放置工場データ</summary>
+	static vector<Entity> neFactory;
+	/// <summary>自分軍隊データ</summary>
+	static vector<Entity> myTroop;
+	/// <summary>相手軍隊データ</summary>
+	static vector<Entity> enTroop;
+	/// <summary>自分爆弾データ</summary>
+	static vector<Entity> myBomb;
+	/// <summary>相手爆弾データ</summary>
+	static vector<Entity> enBomb;
 
 };
 
 int Share::factoryNumber;
 vector<vector<int>> Share::distance;
-vector<Entity> Share::entities;
+vector<Entity> Share::factory;
+vector<Entity> Share::myFactory;
+vector<Entity> Share::enFactory;
+vector<Entity> Share::neFactory;
+vector<Entity> Share::myTroop;
+vector<Entity> Share::enTroop;
+vector<Entity> Share::myBomb;
+vector<Entity> Share::enBomb;
 
 struct Input {
 
@@ -173,13 +206,44 @@ struct Input {
 		cin >> number;
 		cin.ignore();
 
-		Share::entities.clear();
+		Share::factory.clear();
+		Share::myTroop.clear();
+		Share::enTroop.clear();
+		Share::myBomb.clear();
+		Share::enBomb.clear();
+
 		for (int i = 0; i < number; i++)
 		{
 			Entity entity;
 			cin >> entity.id >> entity.type >> entity.arg1 >> entity.arg2 >> entity.arg3 >> entity.arg4 >> entity.arg5;
 			cin.ignore();
-			Share::entities.push_back(move(entity));
+
+			if (entity.type == Factory)
+			{
+				Share::factory.push_back(entity);
+				if (entity.arg1 == My)
+					Share::myFactory.push_back(move(entity));
+				else if (entity.arg1 == Enemy)
+					Share::enFactory.push_back(move(entity));
+				else
+					Share::neFactory.push_back(move(entity));
+			}
+			else if (entity.type == Troop)
+			{
+				if (entity.arg1 == My)
+					Share::myTroop.push_back(move(entity));
+				else if (entity.arg1 == Enemy)
+					Share::enTroop.push_back(move(entity));
+			}
+			else if (entity.type == Bomb)
+			{
+				if (entity.arg1 == My)
+					Share::myBomb.push_back(move(entity));
+				else if (entity.arg1 == Enemy)
+					Share::enBomb.push_back(move(entity));
+			}
+
+
 		}
 
 	}
@@ -192,34 +256,40 @@ public:
 	const string think() {
 
 		const auto& distance = Share::GetDistance();
-		const auto& entity = Share::GetEntity();
+		const auto& factories = Share::GetFactory();
 		const int size = distance.size();
 
-		pair<int, int> route(Inf, Inf);
-		int range = Inf;
-		int send = 0;
+		vector<pair<int, int>> cyborgMap;
+		cyborgMap.resize(size, { 0,0 });
+
+		const auto& myTroops = Share::GetMyTroop();
+		const auto& enTroops = Share::GetEnTroop();
+		for (const auto& troop : myTroops) cyborgMap[troop.arg3].first += troop.arg4;
+		for (const auto& troop : enTroops) cyborgMap[troop.arg3].second += troop.arg4;
+
+		stringstream com;
 		for (int s = 0; s < size; s++)
 		{
-			if (entity[s].arg1 == My)
+			if (factories[s].arg1 == My)
 			{
 				for (int e = 0; e < size; e++)
 				{
 					if (s != e)
 					{
-						if (entity[e].arg1 == Enemy || entity[e].arg1 == Neutral)
+						if (factories[e].arg1 == Enemy || factories[e].arg1 == Neutral)
 						{
-							if (distance[s][e] < range)
-							{
-								const int enemyNumber = entity[e].arg2 + entity[e].arg3*distance[s][e];
+							int enemyNumber = factories[e].arg2 + cyborgMap[e].second;
+							if (factories[e].arg1 == Enemy)
+								enemyNumber += factories[e].arg3*distance[s][e];
+							else
+								enemyNumber += 1;
 
-								if (entity[s].arg2 > enemyNumber)
-								{
-									cerr << "STATE:" << entity[e].arg1 << "in" << entity[e].arg2 << "+" << entity[e].arg3*distance[s][e] << endl;
-									cerr << "COM:" << s << "->" << e << "-" << enemyNumber << endl;
-									range = distance[s][e];
-									route = { s,e };
-									send = max(enemyNumber, 1);
-								}
+							//int myNumber = entities[s].arg2 + cyborgMap[e].first;
+							int myNumber = factories[s].arg2;
+
+							if (myNumber > enemyNumber)
+							{
+								com << CMove << s << " " << e << " " << max(enemyNumber, 1) << ";";
 							}
 						}
 					}
@@ -227,14 +297,12 @@ public:
 			}
 		}
 
-		if (range != Inf)
+		if (!com.str().empty())
 		{
-			stringstream com;
-			com << Move << route.first << " " << route.second << " " << send;
 			return com.str();
 		}
 
-		return Wait;
+		return CWait;
 	}
 
 private:
@@ -258,8 +326,7 @@ int main() {
 		const string com = ai.think();
 		sw.stop();
 
-		cout << com << endl;
-		cerr << sw.millisecond() << "ms" << endl;
+		cout << com << CMsg << sw.millisecond() << "ms" << endl;
 	}
 }
 
@@ -268,8 +335,8 @@ int main() {
 arg1:　所有者　1:自分, -1:相手 0:中立
 arg2:　サイボーグ数
 arg3:　生産量
-arg4:　未使用
-arg5:　未使用
+arg4:　
+arg5:　
 
 部隊ユニット:TROOP
 arg1:　所有者　1:自分, -1:相手
@@ -278,10 +345,32 @@ arg3:　部隊が目指す工場
 arg4:　サイボーグ数
 arg5:　到着までのターン数
 
+爆弾ユニット:BOMB
+arg1:　所有者　1:自分, -1:相手
+arg2:　爆弾が出発した工場
+arg3:　爆弾が目指す工場(相手の爆弾ならば-1)
+arg4:　到着までのターン数(相手の爆弾ならば-1)
+arg5:　
+
 出力
 MOVE　サイボーグを送り出す
 MOVE 2 4 12:　12のサイボーグを2から4に送る
 
 WAIT　何もしない
+
+MSG　メッセージを表示する
+
+BOMB　爆弾を発射する
+BOMB 2 4:　爆弾を2から4に送る
+
+INC　生産量を増やす　コスト:サイボーグ10体
+INC 2:　2の生産数を1つ増やす
+
+爆弾
+工場から工場に送られる
+着弾した工場のサイボーグ数をmin(n/2,n-10)にする　(33->16, 13->3)
+着弾後5ターンの間サイボーグを生産できない
+相手の爆弾が発射されることはわかるが、どこにいつ着弾するかはわからない
+同じ工場から爆弾と軍隊を同時に送ろうとすると、爆弾だけ送られる
 
 */

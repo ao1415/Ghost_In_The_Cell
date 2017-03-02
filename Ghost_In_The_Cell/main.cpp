@@ -181,7 +181,9 @@ struct Command {
 
 };
 
-using FactoryDistance = array<array<int, 15>, 15>;
+const int FactoryLimit = 15;
+const int DistanceLimit = 20;
+using FactoryDistance = array<array<int, FactoryLimit>, FactoryLimit>;
 
 struct Input;
 class Share {
@@ -374,100 +376,10 @@ struct Input {
 
 };
 
-class Game {
-public:
-
-	Game() = default;
-	Game(const Game&) = default;
-	Game(Game&&) = default;
-
-	void input(const vector<FactoryEntity>& _factories, const vector<TroopEntity>& _troops) {
-		factories = _factories;
-		troops = _troops;
-	}
-
-	Game next(const vector<Command>& coms) const {
-
-		Game game(*this);
-
-		const auto& distance = Share::GetDistance();
-
-		for (auto& troop : game.troops)
-			troop.arrive--;
-
-		for (const auto& com : coms)
-		{
-			switch (com.type)
-			{
-			case CommandType::Move:
-			{
-				game.factories[com.arg1].number -= com.arg3;
-				TroopEntity troop;
-				troop.id = Inf;
-				troop.owns = game.factories[com.arg1].owns;
-				troop.leave = com.arg1;
-				troop.target = com.arg2;
-				troop.number = com.arg3;
-				troop.arrive = distance[com.arg1][com.arg2];
-				game.troops.push_back(move(troop));
-				break;
-			}
-			case CommandType::Inc:
-				game.factories[com.arg1].number -= IncCost;
-				game.factories[com.arg1].production = min(IncLimit, game.factories[com.arg1].production + 1);
-				break;
-			}
-		}
-
-		for (auto& fac : game.factories)
-		{
-			if (fac.owns != Neutral)
-			{
-				if (fac.restart <= 0)
-					fac.number += fac.production;
-				fac.restart--;
-			}
-		}
-
-		vector<TroopEntity> nextTroop;
-		for (auto& troop : game.troops)
-		{
-			if (troop.arrive == 0)
-			{
-				if (game.factories[troop.target].owns == troop.owns)
-				{
-					game.factories[troop.target].number += troop.number;
-				}
-				else
-				{
-					game.factories[troop.target].number -= troop.number;
-					if (game.factories[troop.target].number <= 0)
-					{
-						game.factories[troop.target].number *= -1;
-						game.factories[troop.target].owns = troop.owns;
-					}
-				}
-			}
-			else
-			{
-				troop.arrive--;
-				nextTroop.push_back(move(troop));
-			}
-		}
-		game.troops = move(nextTroop);
-
-		return game;
-	}
-
-private:
-
-	vector<FactoryEntity> factories;
-	vector<TroopEntity> troops;
-
-};
-
 class AI {
 public:
+
+	using RiskType = array<array<int, FactoryLimit>, DistanceLimit + 1>;
 
 	const string think() {
 
@@ -475,6 +387,16 @@ public:
 
 		const auto& factories = Share::GetFactory();
 		const auto& myFactories = Share::GetMyFactory();
+
+		setRiskTable();
+
+		for (const auto& vec : riskTable)
+		{
+			for (const auto& v : vec)
+				cerr << setw(3) << right << v << ",";
+			cerr << endl;
+		}
+		cerr << resetiosflags(ios_base::floatfield);
 
 		string com = WaitCommand();
 
@@ -499,7 +421,11 @@ public:
 				const double mr = myRange / 20.0;
 				const double pr = pro / 3.0;
 
-				return (int)((er - mr + pr) * 10000);
+				int flag = 0;
+				if (myFactories[0].number > f.number)
+					flag = 1;
+
+				return (int)((er - mr + pr) * 10000)*flag;
 			};
 
 			if (neFactories.empty())
@@ -520,34 +446,51 @@ public:
 				}
 			}
 
-			if (myFactories[0].production > 0)
-			{
-				cerr << "移動:" << myFactories[0].id << "->" << id << "=" << myFactories[0].number << endl;
-				com += MoveCommand(myFactories[0].id, id, myFactories[0].number);
-			}
-			else
-			{
-				if (myFactories[0].number > IncCost)
-				{
-					cerr << "移動:" << myFactories[0].id << "->" << id << "=" << myFactories[0].number - IncCost << endl;
-					com += MoveCommand(myFactories[0].id, id, myFactories[0].number - IncCost);
-				}
-			}
+			cerr << "初期移動:" << myFactories[0].id << "->" << id << "=" << myFactories[0].number << endl;
+			com += MoveCommand(myFactories[0].id, id, myFactories[0].number);
 		}
 		else
 		{
+			array<int, FactoryLimit> risk;
+			for (int i = 0; i < FactoryLimit; i++)
+				risk[i] = getRiskSum(i);
+
+			for (const auto& v : risk)
+				cerr << setw(3) << right << v << ",";
+			cerr << endl;
+			cerr << resetiosflags(ios_base::floatfield);
+
 			for (const auto& myfac : myFactories)
 			{
 				if (myfac.production < IncLimit)
 				{
 					if (myfac.number >= IncCost)
 					{
+						cerr << "生産増加:" << myfac.id << endl;
 						com += IncCommand(myfac.id);
 					}
 				}
 				else
 				{
-
+					cerr << "危険度チェック:id=" << myfac.id << ", " << risk[myfac.id] << " < " << myfac.number << endl;
+					if (risk[myfac.id] < myfac.number)
+					{
+						cerr << "支援するよ" << endl;
+						for (auto myf : myFactories)
+						{
+							if (myfac.id != myf.id)
+							{
+								cerr << "危険度チェック:id=" << myf.id << ", " << risk[myf.id] << " < " << myf.number << endl;
+								if (risk[myf.id] > myf.number)
+								{
+									const int move = myfac.number - risk[myfac.id];
+									cerr << "救出移動:" << myfac.id << "->" << myf.id << "=" << move << endl;
+									com += MoveCommand(myfac.id, myf.id, move);
+									break;
+								}
+							}
+						}
+					}
 				}
 			}
 		}
@@ -558,6 +501,31 @@ public:
 private:
 
 
+	RiskType riskTable;
+
+	void setRiskTable() {
+
+		for (auto& vec : riskTable) vec.fill(0);
+
+		const auto& factories = Share::GetFactory();
+		const auto& troops = Share::GetTroop();
+
+		const auto& battle = [&](int o1, int o2) {
+			return o1 == o2 ? 1 : -1;
+		};
+
+		for (const auto& troop : troops)
+		{
+			riskTable[troop.arrive][troop.target] += troop.number*battle(troop.owns, factories[troop.target].owns);
+		}
+	}
+
+	const int getRiskSum(const int id) {
+		int sum = 0;
+		for (int i = 0; i < (int)riskTable.size(); i++)
+			sum += riskTable[i][id];
+		return sum;
+	}
 
 };
 

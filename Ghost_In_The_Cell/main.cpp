@@ -370,6 +370,8 @@ private:
 	const string factoryThink(const Entity& factory, map<int, int> risk) {
 
 		const auto& factories = Share::GetFactory();
+		const auto& myFactories = Share::GetMyFactory();
+		const auto& enFactories = Share::GetEnFactory();
 		const auto& distance = Share::GetDistance();
 
 		int cyborg = factory.arg2;
@@ -393,19 +395,28 @@ private:
 			}
 		}
 
+		int moveCount = 0;
+
 		vector<Entity> nearFactories(factories.size());
 		for (const auto& f : factories)
 			nearFactories[f.second.id] = f.second;
-		sort(nearFactories.begin(), nearFactories.end(), [&](const Entity& e1, const Entity& e2) {return distance[factory.id][e1.id] < distance[factory.id][e2.id]; });
+		sort(nearFactories.begin(), nearFactories.end(),
+			[&](const Entity& e1, const Entity& e2) {
+			if (e1.arg3 != e1.arg3)
+				return e1.arg3 < e1.arg3;
+			else
+				return distance[factory.id][e1.id] < distance[factory.id][e2.id];
+		});
 
 		for (const auto& fac : nearFactories)
 		{
-			if (fac.arg1 == Neutral)
+			if (fac.arg1 == Neutral && fac.arg3 > 0)
 			{
 				if (cyborg > fac.arg2)
 				{
 					command += MoveCommand(factory.id, fac.id, fac.arg2 + 1);
 					cyborg -= fac.arg2 + 1;
+					moveCount++;
 				}
 			}
 		}
@@ -418,13 +429,45 @@ private:
 				{
 					const int damage = checkAttack(factory.id, fac.id, cyborg);
 					const int move = cyborg - damage + 1;
-					if (damage > 0 && move > 0)
+					if (damage >= 10 && move >= 10)
 					{
 						command += MoveCommand(factory.id, fac.id, move);
 						cyborg -= move;
+						moveCount++;
 					}
 				}
 			}
+		}
+
+		const auto findMaxFactory = [](int id, const map<int, Entity>& facs) {
+
+			int maxId = 0;
+			int maxCyborg = 0;
+			for (const auto& fac : facs)
+			{
+				if (id != fac.second.id)
+				{
+					if (maxCyborg < fac.second.arg2)
+					{
+						maxCyborg = fac.second.arg2;
+						maxId = fac.second.id;
+					}
+				}
+			}
+			return maxId;
+		};
+
+		if (risk[factory.id] == 1)
+		{
+			int id = findMaxFactory(factory.id, myFactories);
+			command += MoveCommand(factory.id, id, cyborg);
+			moveCount++;
+		}
+
+		if (moveCount == 0)
+		{
+			int id = findMaxFactory(factory.id, enFactories);
+			command += BombCommand(factory.id, id);
 		}
 
 		return command;

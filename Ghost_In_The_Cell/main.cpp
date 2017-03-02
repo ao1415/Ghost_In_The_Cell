@@ -393,25 +393,34 @@ private:
 			}
 		}
 
-		for (const auto& fac : factories)
+		vector<Entity> nearFactories(factories.size());
+		for (const auto& f : factories)
+			nearFactories[f.second.id] = f.second;
+		sort(nearFactories.begin(), nearFactories.end(), [&](const Entity& e1, const Entity& e2) {return distance[factory.id][e1.id] < distance[factory.id][e2.id]; });
+
+		for (const auto& fac : nearFactories)
 		{
-			if (fac.second.arg1 == Neutral)
+			if (fac.arg1 == Neutral)
 			{
-				if (cyborg > fac.second.arg2)
+				if (cyborg > fac.arg2)
 				{
-					command += MoveCommand(factory.id, fac.second.id, fac.second.arg2 + 1);
-					cyborg -= fac.second.arg2 + 1;
+					command += MoveCommand(factory.id, fac.id, fac.arg2 + 1);
+					cyborg -= fac.arg2 + 1;
 				}
 			}
+		}
+
+		for (const auto& fac : nearFactories)
+		{
 			if (cyborg > 10 || (factory.arg3 == IncLimit && cyborg > 0))
 			{
-				if (fac.second.arg1 != My)
+				if (fac.arg1 != My)
 				{
-					const int damage = checkAttack(factory.id, fac.second.id, cyborg);
+					const int damage = checkAttack(factory.id, fac.id, cyborg);
 					const int move = cyborg - damage + 1;
 					if (damage > 0 && move > 0)
 					{
-						command += MoveCommand(factory.id, fac.second.id, move);
+						command += MoveCommand(factory.id, fac.id, move);
 						cyborg -= move;
 					}
 				}

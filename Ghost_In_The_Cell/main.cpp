@@ -25,6 +25,7 @@ const int My = 1;
 const int Enemy = -1;
 const int Neutral = 0;
 
+const int IncCost = 10;
 const int Inf = 999999;
 
 class Stopwatch {
@@ -270,6 +271,9 @@ public:
 
 		const auto& risk = checkRisk();
 
+		for (const auto& r : risk)
+			cerr << r.first << ":" << r.second << endl;
+
 		string com;
 		for (const auto& my : myFactories)
 		{
@@ -281,41 +285,57 @@ public:
 
 private:
 
+	//全ての工場の危険度を調べる・数値は全滅するまでのターン数
 	const map<int, int> checkRisk() {
-
-		const auto& myFactories = Share::GetMyFactory();
-		const auto& enFactories = Share::GetEnFactory();
 
 		const auto& myTroop = Share::GetMyTroop();
 		const auto& enTroop = Share::GetEnTroop();
 
-		const auto& distance = Share::GetDistance();
-
 		auto factories = Share::GetFactory();
 
+		const auto checkTeam = [](const Entity& e1, const Entity& e2) {
+			return e1.arg1 == e2.arg1 ? 1 : -1;
+		};
+
 		map<int, int> risk;
+		for (const auto& f : factories)
+		{
+			risk[f.second.id] = Inf;
+		}
 
 		for (auto& r : risk) r.second = Inf;
 
-		const int Turn = 10;
-		for (int t = 1; t <= Turn; t++)
+		const int Turn = 20;
+		for (int t = 0; t <= Turn; t++)
 		{
 			for (const auto& troop : enTroop)
 			{
 				if (troop.second.arg5 == t)
-					factories[troop.second.arg3].arg2 -= troop.second.arg4;
+					factories[troop.second.arg3].arg2 += troop.second.arg4 * checkTeam(factories[troop.second.arg3], troop.second);
 			}
 			for (const auto& troop : myTroop)
 			{
 				if (troop.second.arg5 == t)
-					factories[troop.second.arg3].arg2 += troop.second.arg4;
+					factories[troop.second.arg3].arg2 += troop.second.arg4 * checkTeam(factories[troop.second.arg3], troop.second);
 			}
 
-			for (const auto& factory : myFactories)
+			for (auto& fac : factories)
 			{
-				if (factory.second.arg2 <= 0)
-					risk[factory.second.id] = min(risk[factory.second.id], t);
+				if (fac.second.arg1 != 0)
+					fac.second.arg2 += fac.second.arg3;
+				if (fac.second.arg2 <= 0)
+					risk[fac.second.id] = min(risk[fac.second.id], t);
 			}
+		}
+
+		return risk;
+	}
+	const int checkRisk(const Entity& factory) {
+
+		int risk = Inf;
+		for (int t = 0; t <= 20; t++)
+		{
+
 		}
 
 		return risk;
@@ -323,7 +343,16 @@ private:
 
 	const string factoryThink(const Entity& factory, const map<int, int>& risk) {
 
+		const auto& factories = Share::GetFactory();
+		const auto& distance = Share::GetDistance();
 
+		if (risk[factory.id] == Inf)
+		{
+			if (factory.arg2 >= IncCost)
+			{
+
+			}
+		}
 
 		return WaitCommand();
 	}

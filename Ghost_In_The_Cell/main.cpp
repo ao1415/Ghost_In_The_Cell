@@ -305,25 +305,33 @@ private:
 
 
 		for (auto& vec : troopTable)
+		{
+			vec.clear();
 			vec.resize(factories.size(), 0);
+		}
 
 		for (const auto& troop : myTroop)
-		{
 			troopTable[troop.second.arg5][troop.second.arg3] += troop.second.arg4 * checkTeam(factories[troop.second.arg3].arg1, troop.second.arg1);
-		}
 		for (const auto& troop : enTroop)
-		{
 			troopTable[troop.second.arg5][troop.second.arg3] += troop.second.arg4 * checkTeam(factories[troop.second.arg3].arg1, troop.second.arg1);
+
+		/*
+		for (const auto& vec : troopTable)
+		{
+			for (const auto& v : vec)
+				cerr << v << ",";
+			cerr << endl;
 		}
+		*/
 
 		for (const auto& fac : factories)
 		{
-			risk[fac.second.id] = checkRisk(fac.second.id, fac.second.arg2);
+			risk[fac.second.id] = checkRisk(fac.second.id, fac.second.arg2, fac.second.arg3);
 		}
 
 		return risk;
 	}
-	const int checkRisk(const int id, const int number) {
+	const int checkRisk(const int id, const int number, const int inc) {
 
 		int risk = Inf;
 		int cyborg = number;
@@ -331,6 +339,7 @@ private:
 		for (int t = 0; t <= Turn; t++)
 		{
 			cyborg += troopTable[t][id];
+			cyborg += inc;
 
 			if (cyborg <= 0)
 				return t;
@@ -350,7 +359,12 @@ private:
 		const int inc = factories.at(end).arg3;
 		const int range = distance[begin][end];
 
-		return attack - (defense + inc*range);
+		int damage = 0;
+
+		for (int i = 0; i < range; i++)
+			damage += troopTable[i][end];
+
+		return attack + damage - (defense + inc*range);
 	}
 
 	const string factoryThink(const Entity& factory, map<int, int> risk) {
@@ -368,11 +382,12 @@ private:
 			{
 				if (cyborg >= IncCost)
 				{
-					if (checkRisk(factory.id, cyborg - IncCost) == Inf)
+					const int turn = checkRisk(factory.id, cyborg - IncCost, factory.arg3 + 1);
+					//cerr << "INC:" << factory.id << "-" << turn << endl;
+					if (turn == Inf)
 					{
 						cyborg -= IncCost;
 						command += IncCommand(factory.id);
-						cerr << "INC:" << factory.id << endl;
 					}
 				}
 			}
@@ -380,14 +395,22 @@ private:
 
 		for (const auto& fac : factories)
 		{
-			if (cyborg > 10)
+			if (fac.second.arg1 == Neutral)
+			{
+				if (cyborg > fac.second.arg2)
+				{
+					command += MoveCommand(factory.id, fac.second.id, fac.second.arg2 + 1);
+					cyborg -= fac.second.arg2 + 1;
+				}
+			}
+			if (cyborg > 10 || (factory.arg3 == IncLimit && cyborg > 0))
 			{
 				if (fac.second.arg1 != My)
 				{
 					const int damage = checkAttack(factory.id, fac.second.id, cyborg);
-					if (damage > 0)
+					const int move = cyborg - damage + 1;
+					if (damage > 0 && move > 0)
 					{
-						int move = cyborg - damage + 1;
 						command += MoveCommand(factory.id, fac.second.id, move);
 						cyborg -= move;
 					}

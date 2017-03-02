@@ -8,6 +8,7 @@
 #include <array>
 #include <chrono>
 #include <map>
+#include <iomanip>
 
 using namespace std;
 
@@ -28,6 +29,12 @@ const int Neutral = 0;
 const int IncCost = 10;
 const int IncLimit = 3;
 const int Inf = 999999;
+
+inline const string MoveCommand(int begin, int end, int num) { return CMove + to_string(begin) + " " + to_string(end) + " " + to_string(num) + ";"; }
+inline const string WaitCommand() { return CWait + ";"; }
+inline const string MessageCommand(const string& msg) { return CMsg + msg + ";"; }
+inline const string BombCommand(int begin, int end) { return CBomb + to_string(begin) + " " + to_string(end) + ";"; }
+inline const string IncCommand(int id) { return CInc + to_string(id) + ";"; }
 
 class Stopwatch {
 public:
@@ -107,33 +114,93 @@ private:
 
 };
 
-struct Entity {
+struct FactoryEntity {
+	/// <summary>id</summary>
 	int id;
-	string type;
+	/// <summary>所有者</summary>
+	int owns;
+	/// <summary>サイボーグ数</summary>
+	int number;
+	/// <summary>生産量</summary>
+	int production;
+	/// <summary>復帰ターン数</summary>
+	int restart;
+};
+struct TroopEntity {
+	/// <summary>id</summary>
+	int id;
+	/// <summary>所有者</summary>
+	int owns;
+	/// <summary>出発地点</summary>
+	int leave;
+	/// <summary>到着地点</summary>
+	int target;
+	/// <summary>サイボーグ数</summary>
+	int number;
+	/// <summary>到着ターン数</summary>
+	int arrive;
+};
+struct BombEntity {
+	/// <summary>id</summary>
+	int id;
+	/// <summary>所有者</summary>
+	int owns;
+	/// <summary>出発地点</summary>
+	int leave;
+	/// <summary>到着地点</summary>
+	int target;
+	/// <summary>到着ターン数</summary>
+	int arrive;
+};
+
+enum class CommandType {
+	Move,
+	Wait,
+	Msg,
+	Bomb,
+	Inc
+};
+
+struct Command {
+	CommandType type;
 	int arg1;
 	int arg2;
 	int arg3;
-	int arg4;
-	int arg5;
+
+	const string toString() const {
+		switch (type)
+		{
+		case CommandType::Move: return MoveCommand(arg1, arg2, arg3);
+		case CommandType::Wait: return WaitCommand();
+		case CommandType::Msg: return MessageCommand("No Massage");
+		case CommandType::Bomb: return BombCommand(arg1, arg2);
+		case CommandType::Inc: return IncCommand(arg1);
+		}
+		return "";
+	}
+
 };
+
+using FactoryDistance = array<array<int, 15>, 15>;
 
 struct Input;
 class Share {
 public:
 
 	inline static const int& GetFactoryNumber() { return factoryNumber; }
-	inline static const vector<vector<int>>& GetDistance() { return distance; }
+	inline static const FactoryDistance& GetDistance() { return distance; }
 
-	inline static const map<int, Entity>& GetFactory() { return factory; }
-	inline static const map<int, Entity>& GetMyFactory() { return myFactory; }
-	inline static const map<int, Entity>& GetEnFactory() { return enFactory; }
-	inline static const map<int, Entity>& GetNeFactory() { return neFactory; }
+	inline static const vector<FactoryEntity>& GetFactory() { return factory; }
+	inline static const vector<FactoryEntity>& GetMyFactory() { return myFactory; }
+	inline static const vector<FactoryEntity>& GetEnFactory() { return enFactory; }
+	inline static const vector<FactoryEntity>& GetNeFactory() { return neFactory; }
 
-	inline static const map<int, Entity>& GetMyTroop() { return myTroop; }
-	inline static const map<int, Entity>& GetEnTroop() { return enTroop; }
+	inline static const vector<TroopEntity>& GetTroop() { return troop; }
+	inline static const vector<TroopEntity>& GetMyTroop() { return myTroop; }
+	inline static const vector<TroopEntity>& GetEnTroop() { return enTroop; }
 
-	inline static const map<int, Entity>& GetMyBomb() { return myBomb; }
-	inline static const map<int, Entity>& GetEnBomb() { return enBomb; }
+	inline static const vector<BombEntity>& GetMyBomb() { return myBomb; }
+	inline static const vector<BombEntity>& GetEnBomb() { return enBomb; }
 
 private:
 
@@ -142,43 +209,42 @@ private:
 	/// <summary>工場の総数</summary>
 	static int factoryNumber;
 	/// <summary>工場の間の距離</summary>
-	static vector<vector<int>> distance;
+	static FactoryDistance distance;
 
 	/// <summary>工場データ</summary>
-	static map<int, Entity> factory;
+	static vector<FactoryEntity> factory;
 	/// <summary>自分工場データ</summary>
-	static map<int, Entity> myFactory;
+	static vector<FactoryEntity> myFactory;
 	/// <summary>相手工場データ</summary>
-	static map<int, Entity> enFactory;
+	static vector<FactoryEntity> enFactory;
 	/// <summary>放置工場データ</summary>
-	static map<int, Entity> neFactory;
+	static vector<FactoryEntity> neFactory;
+
+	/// <summary>軍隊データ</summary>
+	static vector<TroopEntity> troop;
 	/// <summary>自分軍隊データ</summary>
-	static map<int, Entity> myTroop;
+	static vector<TroopEntity> myTroop;
 	/// <summary>相手軍隊データ</summary>
-	static map<int, Entity> enTroop;
+	static vector<TroopEntity> enTroop;
+
 	/// <summary>自分爆弾データ</summary>
-	static map<int, Entity> myBomb;
+	static vector<BombEntity> myBomb;
 	/// <summary>相手爆弾データ</summary>
-	static map<int, Entity> enBomb;
+	static vector<BombEntity> enBomb;
 
 };
 
-inline const string MoveCommand(int begin, int end, int num) { return CMove + to_string(begin) + " " + to_string(end) + " " + to_string(num) + ";"; }
-inline const string WaitCommand() { return CWait + ";"; }
-inline const string MessageCommand(const string& msg) { return CMsg + msg + ";"; }
-inline const string BombCommand(int begin, int end) { return CBomb + to_string(begin) + " " + to_string(end) + ";"; }
-inline const string IncCommand(int id) { return CInc + to_string(id) + ";"; }
-
 int Share::factoryNumber;
-vector<vector<int>> Share::distance;
-map<int, Entity> Share::factory;
-map<int, Entity> Share::myFactory;
-map<int, Entity> Share::enFactory;
-map<int, Entity> Share::neFactory;
-map<int, Entity> Share::myTroop;
-map<int, Entity> Share::enTroop;
-map<int, Entity> Share::myBomb;
-map<int, Entity> Share::enBomb;
+FactoryDistance Share::distance;
+vector<FactoryEntity> Share::factory;
+vector<FactoryEntity> Share::myFactory;
+vector<FactoryEntity> Share::enFactory;
+vector<FactoryEntity> Share::neFactory;
+vector<TroopEntity> Share::troop;
+vector<TroopEntity> Share::myTroop;
+vector<TroopEntity> Share::enTroop;
+vector<BombEntity> Share::myBomb;
+vector<BombEntity> Share::enBomb;
 
 struct Input {
 
@@ -189,14 +255,14 @@ struct Input {
 		cin.ignore();
 
 		Share::factoryNumber = number;
-		Share::distance.resize(number);
-		for (auto& d : Share::distance) d.resize(number);
+
+		for (auto& d : Share::distance) d.fill(0);
 
 		int link;
 		cin >> link;
 		cin.ignore();
 
-		cerr << "Unit:" << number << ", Link:" << link << endl;
+		//cerr << "Unit:" << number << ", Link:" << link << endl;
 
 		for (int i = 0; i < link; i++)
 		{
@@ -208,6 +274,17 @@ struct Input {
 			Share::distance[factory2][factory1] = distance;
 		}
 
+		/*
+		for (const auto& vec : Share::distance)
+		{
+			for (const auto& v : vec)
+			{
+				cerr << setw(2) << setfill(' ') << right << v << ",";
+			}
+			cerr << endl;
+		}
+		cerr << resetiosflags(ios_base::floatfield);
+		//*/
 	}
 
 	static void Loop() {
@@ -220,40 +297,74 @@ struct Input {
 		Share::myFactory.clear();
 		Share::enFactory.clear();
 		Share::neFactory.clear();
+
+		Share::troop.clear();
 		Share::myTroop.clear();
 		Share::enTroop.clear();
+
 		Share::myBomb.clear();
 		Share::enBomb.clear();
 
+		Share::factory.resize(Share::factoryNumber);
+
 		for (int i = 0; i < number; i++)
 		{
-			Entity entity;
-			cin >> entity.id >> entity.type >> entity.arg1 >> entity.arg2 >> entity.arg3 >> entity.arg4 >> entity.arg5;
+			int id;
+			string type;
+			int arg1;
+			int arg2;
+			int arg3;
+			int arg4;
+			int arg5;
+			cin >> id >> type >> arg1 >> arg2 >> arg3 >> arg4 >> arg5;
 			cin.ignore();
 
-			if (entity.type == Factory)
+			if (type == Factory)
 			{
+				FactoryEntity entity;
+				entity.id = id;
+				entity.owns = arg1;
+				entity.number = arg2;
+				entity.production = arg3;
+				entity.restart = arg4;
+
 				Share::factory[entity.id] = entity;
-				if (entity.arg1 == My)
-					Share::myFactory[entity.id] = move(entity);
-				else if (entity.arg1 == Enemy)
-					Share::enFactory[entity.id] = move(entity);
+				if (entity.owns == My)
+					Share::myFactory.push_back(move(entity));
+				else if (entity.owns == Enemy)
+					Share::enFactory.push_back(move(entity));
 				else
-					Share::neFactory[entity.id] = move(entity);
+					Share::neFactory.push_back(move(entity));
 			}
-			else if (entity.type == Troop)
+			else if (type == Troop)
 			{
-				if (entity.arg1 == My)
-					Share::myTroop[entity.id] = move(entity);
-				else if (entity.arg1 == Enemy)
-					Share::enTroop[entity.id] = move(entity);
+				TroopEntity entity;
+				entity.id = id;
+				entity.owns = arg1;
+				entity.leave = arg2;
+				entity.target = arg3;
+				entity.number = arg4;
+				entity.arrive = arg5;
+
+				Share::troop.push_back(entity);
+				if (entity.owns == My)
+					Share::myTroop.push_back(move(entity));
+				else if (entity.owns == Enemy)
+					Share::enTroop.push_back(move(entity));
 			}
-			else if (entity.type == Bomb)
+			else if (type == Bomb)
 			{
-				if (entity.arg1 == My)
-					Share::myBomb[entity.id] = move(entity);
-				else if (entity.arg1 == Enemy)
-					Share::enBomb[entity.id] = move(entity);
+				BombEntity entity;
+				entity.id = id;
+				entity.owns = arg1;
+				entity.leave = arg2;
+				entity.target = arg3;
+				entity.arrive = arg4;
+
+				if (entity.owns == My)
+					Share::myBomb.push_back(move(entity));
+				else if (entity.owns == Enemy)
+					Share::enBomb.push_back(move(entity));
 			}
 
 
@@ -263,215 +374,190 @@ struct Input {
 
 };
 
+class Game {
+public:
+
+	Game() = default;
+	Game(const Game&) = default;
+	Game(Game&&) = default;
+
+	void input(const vector<FactoryEntity>& _factories, const vector<TroopEntity>& _troops) {
+		factories = _factories;
+		troops = _troops;
+	}
+
+	Game next(const vector<Command>& coms) const {
+
+		Game game(*this);
+
+		const auto& distance = Share::GetDistance();
+
+		for (auto& troop : game.troops)
+			troop.arrive--;
+
+		for (const auto& com : coms)
+		{
+			switch (com.type)
+			{
+			case CommandType::Move:
+			{
+				game.factories[com.arg1].number -= com.arg3;
+				TroopEntity troop;
+				troop.id = Inf;
+				troop.owns = game.factories[com.arg1].owns;
+				troop.leave = com.arg1;
+				troop.target = com.arg2;
+				troop.number = com.arg3;
+				troop.arrive = distance[com.arg1][com.arg2];
+				game.troops.push_back(move(troop));
+				break;
+			}
+			case CommandType::Inc:
+				game.factories[com.arg1].number -= IncCost;
+				game.factories[com.arg1].production = min(IncLimit, game.factories[com.arg1].production + 1);
+				break;
+			}
+		}
+
+		for (auto& fac : game.factories)
+		{
+			if (fac.owns != Neutral)
+			{
+				if (fac.restart <= 0)
+					fac.number += fac.production;
+				fac.restart--;
+			}
+		}
+
+		vector<TroopEntity> nextTroop;
+		for (auto& troop : game.troops)
+		{
+			if (troop.arrive == 0)
+			{
+				if (game.factories[troop.target].owns == troop.owns)
+				{
+					game.factories[troop.target].number += troop.number;
+				}
+				else
+				{
+					game.factories[troop.target].number -= troop.number;
+					if (game.factories[troop.target].number <= 0)
+					{
+						game.factories[troop.target].number *= -1;
+						game.factories[troop.target].owns = troop.owns;
+					}
+				}
+			}
+			else
+			{
+				troop.arrive--;
+				nextTroop.push_back(move(troop));
+			}
+		}
+		game.troops = move(nextTroop);
+
+		return game;
+	}
+
+private:
+
+	vector<FactoryEntity> factories;
+	vector<TroopEntity> troops;
+
+};
+
 class AI {
 public:
 
 	const string think() {
 
+		const auto& distance = Share::GetDistance();
+
 		const auto& factories = Share::GetFactory();
 		const auto& myFactories = Share::GetMyFactory();
-		const auto& enFactories = Share::GetEnFactory();
-		const auto& neFactories = Share::GetNeFactory();
-
-		const auto& risk = checkRisk();
 
 		string com = WaitCommand();
-		for (const auto& my : myFactories)
+
+		if (myFactories.size() == 1)
 		{
-			com += factoryThink(my.second, risk);
+			cerr << "初動ルーチン" << endl;
+
+			const auto& enFactories = Share::GetEnFactory();
+			const auto& neFactories = Share::GetNeFactory();
+
+			const auto nextBaseEval = [&](const FactoryEntity& f) {
+				int enRange = Inf;
+				int myRange = Inf;
+				int pro = f.production;
+
+				for (const auto& fac : enFactories)
+					enRange = min(enRange, distance[f.id][fac.id]);
+				for (const auto& fac : myFactories)
+					myRange = min(myRange, distance[f.id][fac.id]);
+
+				const double er = enRange / 20.0;
+				const double mr = myRange / 20.0;
+				const double pr = pro / 3.0;
+
+				return (int)((er - mr + pr) * 10000);
+			};
+
+			if (neFactories.empty())
+			{
+				cerr << "詰みです" << endl;
+				return WaitCommand();
+			}
+
+			int maxScore = nextBaseEval(neFactories[0]);
+			int id = neFactories[0].id;
+			for (const auto& nefac : neFactories)
+			{
+				const int score = nextBaseEval(nefac);
+				if (maxScore < score)
+				{
+					maxScore = score;
+					id = nefac.id;
+				}
+			}
+
+			if (myFactories[0].production > 0)
+			{
+				cerr << "移動:" << myFactories[0].id << "->" << id << "=" << myFactories[0].number << endl;
+				com += MoveCommand(myFactories[0].id, id, myFactories[0].number);
+			}
+			else
+			{
+				if (myFactories[0].number > IncCost)
+				{
+					cerr << "移動:" << myFactories[0].id << "->" << id << "=" << myFactories[0].number - IncCost << endl;
+					com += MoveCommand(myFactories[0].id, id, myFactories[0].number - IncCost);
+				}
+			}
+		}
+		else
+		{
+			for (const auto& myfac : myFactories)
+			{
+				if (myfac.production < IncLimit)
+				{
+					if (myfac.number >= IncCost)
+					{
+						com += IncCommand(myfac.id);
+					}
+				}
+				else
+				{
+
+				}
+			}
 		}
 
 		return com;
 	}
 
 private:
-	const static int Turn = 20;
-
-	array<vector<int>, Turn + 1> troopTable;
-
-	//全ての工場の危険度を調べる・数値は全滅するまでのターン数
-	const map<int, int> checkRisk() {
-
-		const auto& myTroop = Share::GetMyTroop();
-		const auto& enTroop = Share::GetEnTroop();
-
-		auto factories = Share::GetFactory();
-
-		const auto checkTeam = [](const int e1, const int e2) {
-			return e1 == e2 ? 1 : -1;
-		};
-
-		map<int, int> risk;
 
 
-		for (auto& vec : troopTable)
-		{
-			vec.clear();
-			vec.resize(factories.size(), 0);
-		}
-
-		for (const auto& troop : myTroop)
-			troopTable[troop.second.arg5][troop.second.arg3] += troop.second.arg4 * checkTeam(factories[troop.second.arg3].arg1, troop.second.arg1);
-		for (const auto& troop : enTroop)
-			troopTable[troop.second.arg5][troop.second.arg3] += troop.second.arg4 * checkTeam(factories[troop.second.arg3].arg1, troop.second.arg1);
-
-		/*
-		for (const auto& vec : troopTable)
-		{
-			for (const auto& v : vec)
-				cerr << v << ",";
-			cerr << endl;
-		}
-		*/
-
-		for (const auto& fac : factories)
-		{
-			risk[fac.second.id] = checkRisk(fac.second.id, fac.second.arg2, fac.second.arg3);
-		}
-
-		return risk;
-	}
-	const int checkRisk(const int id, const int number, const int inc) {
-
-		int risk = Inf;
-		int cyborg = number;
-
-		for (int t = 0; t <= Turn; t++)
-		{
-			cyborg += troopTable[t][id];
-			cyborg += inc;
-
-			if (cyborg <= 0)
-				return t;
-		}
-
-		return risk;
-	}
-
-	//工場に攻撃した時の攻撃者側のサイボーグの総数
-	const int checkAttack(const int begin, const int end, const int number) {
-
-		const auto& factories = Share::GetFactory();
-		const auto& distance = Share::GetDistance();
-
-		const int attack = number;
-		const int defense = factories.at(end).arg2;
-		const int inc = factories.at(end).arg3;
-		const int range = distance[begin][end];
-
-		int damage = 0;
-
-		for (int i = 0; i < range; i++)
-			damage += troopTable[i][end];
-
-		return attack + damage - (defense + inc*range);
-	}
-
-	const string factoryThink(const Entity& factory, map<int, int> risk) {
-
-		const auto& factories = Share::GetFactory();
-		const auto& myFactories = Share::GetMyFactory();
-		const auto& enFactories = Share::GetEnFactory();
-		const auto& distance = Share::GetDistance();
-
-		int cyborg = factory.arg2;
-
-		string command = "";
-
-		if (risk[factory.id] == Inf)
-		{
-			if (factory.arg3 < IncLimit)
-			{
-				if (cyborg >= IncCost)
-				{
-					const int turn = checkRisk(factory.id, cyborg - IncCost, factory.arg3 + 1);
-					//cerr << "INC:" << factory.id << "-" << turn << endl;
-					if (turn == Inf)
-					{
-						cyborg -= IncCost;
-						command += IncCommand(factory.id);
-					}
-				}
-			}
-		}
-
-		int moveCount = 0;
-
-		vector<Entity> nearFactories(factories.size());
-		for (const auto& f : factories)
-			nearFactories[f.second.id] = f.second;
-		sort(nearFactories.begin(), nearFactories.end(),
-			[&](const Entity& e1, const Entity& e2) {
-			if (e1.arg3 != e1.arg3)
-				return e1.arg3 < e1.arg3;
-			else
-				return distance[factory.id][e1.id] < distance[factory.id][e2.id];
-		});
-
-		for (const auto& fac : nearFactories)
-		{
-			if (fac.arg1 == Neutral && fac.arg3 > 0)
-			{
-				if (cyborg > fac.arg2)
-				{
-					command += MoveCommand(factory.id, fac.id, fac.arg2 + 1);
-					cyborg -= fac.arg2 + 1;
-					moveCount++;
-				}
-			}
-		}
-
-		for (const auto& fac : nearFactories)
-		{
-			if (cyborg > 10 || (factory.arg3 == IncLimit && cyborg > 0))
-			{
-				if (fac.arg1 != My)
-				{
-					const int damage = checkAttack(factory.id, fac.id, cyborg);
-					const int move = cyborg - damage + 1;
-					if (damage >= 10 && move >= 10)
-					{
-						command += MoveCommand(factory.id, fac.id, move);
-						cyborg -= move;
-						moveCount++;
-					}
-				}
-			}
-		}
-
-		const auto findMaxFactory = [](int id, const map<int, Entity>& facs) {
-
-			int maxId = 0;
-			int maxCyborg = 0;
-			for (const auto& fac : facs)
-			{
-				if (id != fac.second.id)
-				{
-					if (maxCyborg < fac.second.arg2)
-					{
-						maxCyborg = fac.second.arg2;
-						maxId = fac.second.id;
-					}
-				}
-			}
-			return maxId;
-		};
-
-		if (risk[factory.id] == 1)
-		{
-			int id = findMaxFactory(factory.id, myFactories);
-			command += MoveCommand(factory.id, id, cyborg);
-			moveCount++;
-		}
-
-		if (moveCount == 0)
-		{
-			int id = findMaxFactory(factory.id, enFactories);
-			command += BombCommand(factory.id, id);
-		}
-
-		return command;
-	}
 
 };
 

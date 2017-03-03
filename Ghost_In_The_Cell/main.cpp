@@ -474,13 +474,17 @@ public:
 					int num = 0;
 					for (const auto& ef : enFactories)
 					{
-						if (num < ef.number)
+						if (ef.production > 1 || ef.number >= 30)
 						{
-							num = ef.number;
-							id = ef.id;
+							if (num < ef.number)
+							{
+								num = ef.number;
+								id = ef.id;
+							}
 						}
 					}
 
+					cerr << "ƒ{ƒ€”­ŽË" << myFactories[0].id << "->" << id << endl;
 					com += BombCommand(myFactories[0].id, id);
 				}
 			}
@@ -507,11 +511,35 @@ public:
 						cerr << "¶ŽY‘‰Á:" << myfac.id << endl;
 						com += IncCommand(myfac.id);
 					}
+
+					if (Share::GetMyBomb().empty())
+					{
+						int id = Inf;
+						int num = 0;
+						for (const auto& ef : enFactories)
+						{
+							if ((ef.production > 3 && ef.number >= 50) || ef.number >= 80)
+							{
+								if (num < ef.number)
+								{
+									num = ef.number;
+									id = ef.id;
+								}
+							}
+						}
+
+						if (id != Inf)
+						{
+							cerr << "ƒ{ƒ€”­ŽË" << myfac.id << "->" << id << endl;
+							com += BombCommand(myfac.id, id);
+						}
+					}
 				}
 				else
 				{
-					if (risk[myfac.id] == 0)
+					if (risk[myfac.id] == 0 && riskTable[1][myfac.id] == 0)
 					{
+						//cerr << "Risk:id=" << myfac.id << ", " << risk[myfac.id] << endl;
 						int cyborg = myfac.number;
 
 						for (auto myf : myFactories)
@@ -556,7 +584,7 @@ public:
 									if (fac.production > 0 && cyborg > fac.number + fac.production*distance[myfac.id][fac.id] * abs(fac.owns))
 									{
 										const int score = nextInvasionEval(fac);
-										cerr << "Score:" << score << endl;
+										//cerr << "Score:" << score << endl;
 										if (maxScore < score)
 										{
 											maxScore = score;
@@ -566,9 +594,11 @@ public:
 								}
 							}
 
-							cerr << "N—ª:id=" << myfac.id << "->" << id << "=" << cyborg << endl;
 							if (id != Inf)
+							{
+								cerr << "N—ª:id=" << myfac.id << "->" << id << "=" << cyborg << endl;
 								com += MoveCommand(myfac.id, id, cyborg);
+							}
 						}
 					}
 

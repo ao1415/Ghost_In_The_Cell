@@ -474,7 +474,7 @@ public:
 					int num = 0;
 					for (const auto& ef : enFactories)
 					{
-						if (ef.production > 1 || ef.number >= 30)
+						if (ef.production > 1)
 						{
 							if (num < ef.number)
 							{

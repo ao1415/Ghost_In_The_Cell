@@ -30,12 +30,6 @@ const int IncCost = 10;
 const int IncLimit = 3;
 const int Inf = 999999;
 
-inline const string MoveCommand(int begin, int end, int num) { return CMove + to_string(begin) + " " + to_string(end) + " " + to_string(num) + ";"; }
-inline const string WaitCommand() { return CWait + ";"; }
-inline const string MessageCommand(const string& msg) { return CMsg + msg + ";"; }
-inline const string BombCommand(int begin, int end) { return CBomb + to_string(begin) + " " + to_string(end) + ";"; }
-inline const string IncCommand(int id) { return CInc + to_string(id) + ";"; }
-
 class Stopwatch {
 public:
 
@@ -161,29 +155,11 @@ enum class CommandType {
 	Inc
 };
 
-struct Command {
-	CommandType type;
-	int arg1;
-	int arg2;
-	int arg3;
-
-	const string toString() const {
-		switch (type)
-		{
-		case CommandType::Move: return MoveCommand(arg1, arg2, arg3);
-		case CommandType::Wait: return WaitCommand();
-		case CommandType::Msg: return MessageCommand("No Massage");
-		case CommandType::Bomb: return BombCommand(arg1, arg2);
-		case CommandType::Inc: return IncCommand(arg1);
-		}
-		return "";
-	}
-
-};
-
 const int FactoryLimit = 15;
 const int DistanceLimit = 20;
 using FactoryDistance = array<array<int, FactoryLimit>, FactoryLimit>;
+
+inline const string BombCommand(int begin, int end);
 
 struct Input;
 class Share {
@@ -204,9 +180,12 @@ public:
 	inline static const vector<BombEntity>& GetMyBomb() { return myBomb; }
 	inline static const vector<BombEntity>& GetEnBomb() { return enBomb; }
 
+	inline static const int GetBomb() { return bombNumber; }
+
 private:
 
 	friend Input;
+	friend const string BombCommand(int, int);
 
 	/// <summary>工場の総数</summary>
 	static int factoryNumber;
@@ -234,6 +213,9 @@ private:
 	/// <summary>相手爆弾データ</summary>
 	static vector<BombEntity> enBomb;
 
+	/// <summary>ボムの総数</summary>
+	static int bombNumber;
+
 };
 
 int Share::factoryNumber;
@@ -247,6 +229,38 @@ vector<TroopEntity> Share::myTroop;
 vector<TroopEntity> Share::enTroop;
 vector<BombEntity> Share::myBomb;
 vector<BombEntity> Share::enBomb;
+int Share::bombNumber = 2;
+
+inline const string MoveCommand(int begin, int end, int num) { return CMove + to_string(begin) + " " + to_string(end) + " " + to_string(num) + ";"; }
+inline const string WaitCommand() { return CWait + ";"; }
+inline const string MessageCommand(const string& msg) { return CMsg + msg + ";"; }
+inline const string IncCommand(int id) { return CInc + to_string(id) + ";"; }
+inline const string BombCommand(int begin, int end) {
+	if (Share::bombNumber <= 0)
+		return "";
+	Share::bombNumber--;
+	return CBomb + to_string(begin) + " " + to_string(end) + ";";
+}
+
+struct Command {
+	CommandType type;
+	int arg1;
+	int arg2;
+	int arg3;
+
+	const string toString() const {
+		switch (type)
+		{
+		case CommandType::Move: return MoveCommand(arg1, arg2, arg3);
+		case CommandType::Wait: return WaitCommand();
+		case CommandType::Msg: return MessageCommand("No Massage");
+		case CommandType::Bomb: return BombCommand(arg1, arg2);
+		case CommandType::Inc: return IncCommand(arg1);
+		}
+		return "";
+	}
+
+};
 
 struct Input {
 
@@ -388,8 +402,33 @@ public:
 		const auto& factories = Share::GetFactory();
 		const auto& myFactories = Share::GetMyFactory();
 
+		const auto& enFactories = Share::GetEnFactory();
+		const auto& neFactories = Share::GetNeFactory();
+
+		const auto nextBaseEval = [&](const FactoryEntity& f) {
+			int enRange = Inf;
+			int myRange = Inf;
+			int pro = f.production;
+
+			for (const auto& fac : enFactories)
+				enRange = min(enRange, distance[f.id][fac.id]);
+			for (const auto& fac : myFactories)
+				myRange = min(myRange, distance[f.id][fac.id]);
+
+			const double er = enRange / 20.0;
+			const double mr = myRange / 20.0;
+			const double pr = pro / 3.0;
+
+			int flag = 0;
+			if (myFactories[0].number > f.number)
+				flag = 1;
+
+			return (int)((er - mr + pr) * 10000)*flag;
+		};
+
 		setRiskTable();
 
+		/*
 		for (const auto& vec : riskTable)
 		{
 			for (const auto& v : vec)
@@ -397,6 +436,7 @@ public:
 			cerr << endl;
 		}
 		cerr << resetiosflags(ios_base::floatfield);
+		//*/
 
 		string com = WaitCommand();
 
@@ -404,29 +444,6 @@ public:
 		{
 			cerr << "初動ルーチン" << endl;
 
-			const auto& enFactories = Share::GetEnFactory();
-			const auto& neFactories = Share::GetNeFactory();
-
-			const auto nextBaseEval = [&](const FactoryEntity& f) {
-				int enRange = Inf;
-				int myRange = Inf;
-				int pro = f.production;
-
-				for (const auto& fac : enFactories)
-					enRange = min(enRange, distance[f.id][fac.id]);
-				for (const auto& fac : myFactories)
-					myRange = min(myRange, distance[f.id][fac.id]);
-
-				const double er = enRange / 20.0;
-				const double mr = myRange / 20.0;
-				const double pr = pro / 3.0;
-
-				int flag = 0;
-				if (myFactories[0].number > f.number)
-					flag = 1;
-
-				return (int)((er - mr + pr) * 10000)*flag;
-			};
 
 			if (neFactories.empty())
 			{
@@ -448,6 +465,25 @@ public:
 
 			cerr << "初期移動:" << myFactories[0].id << "->" << id << "=" << myFactories[0].number << endl;
 			com += MoveCommand(myFactories[0].id, id, myFactories[0].number);
+
+			if (myFactories[0].number < 10)
+			{
+				if (Share::GetBomb() == 2)
+				{
+					int id = enFactories[0].id;
+					int num = 0;
+					for (const auto& ef : enFactories)
+					{
+						if (num < ef.number)
+						{
+							num = ef.number;
+							id = ef.id;
+						}
+					}
+
+					com += BombCommand(myFactories[0].id, id);
+				}
+			}
 		}
 		else
 		{
@@ -455,10 +491,12 @@ public:
 			for (int i = 0; i < FactoryLimit; i++)
 				risk[i] = getRiskSum(i);
 
+			/*
 			for (const auto& v : risk)
 				cerr << setw(3) << right << v << ",";
 			cerr << endl;
 			cerr << resetiosflags(ios_base::floatfield);
+			//*/
 
 			for (const auto& myfac : myFactories)
 			{
@@ -472,25 +510,68 @@ public:
 				}
 				else
 				{
-					cerr << "危険度チェック:id=" << myfac.id << ", " << risk[myfac.id] << " < " << myfac.number << endl;
-					if (risk[myfac.id] < myfac.number)
+					if (risk[myfac.id] == 0)
 					{
-						cerr << "支援するよ" << endl;
+						int cyborg = myfac.number;
+
 						for (auto myf : myFactories)
 						{
 							if (myfac.id != myf.id)
 							{
-								cerr << "危険度チェック:id=" << myf.id << ", " << risk[myf.id] << " < " << myf.number << endl;
-								if (risk[myf.id] > myf.number)
+								if (-risk[myf.id] > cyborg)
 								{
-									const int move = myfac.number - risk[myfac.id];
+									const int move = cyborg - risk[myfac.id];
 									cerr << "救出移動:" << myfac.id << "->" << myf.id << "=" << move << endl;
 									com += MoveCommand(myfac.id, myf.id, move);
-									break;
+									cyborg -= move;
 								}
 							}
 						}
+
+						if (cyborg > 0)
+						{
+							const auto nextInvasionEval = [&](const FactoryEntity& f) {
+								int enRange = Inf;
+								int myRange = Inf;
+								int pro = f.production;
+
+								for (const auto& fac : enFactories)
+									enRange = min(enRange, distance[f.id][fac.id]);
+								for (const auto& fac : myFactories)
+									myRange = min(myRange, distance[f.id][fac.id]);
+
+								const double er = enRange / 20.0;
+								const double mr = myRange / 20.0;
+								const double pr = pro / 3.0;
+
+								return (int)((er - mr + pr) * 10000);
+							};
+
+							int maxScore = 0;
+							int id = Inf;
+							for (const auto& fac : factories)
+							{
+								if (fac.owns != My)
+								{
+									if (fac.production > 0 && cyborg > fac.number + fac.production*distance[myfac.id][fac.id] * abs(fac.owns))
+									{
+										const int score = nextInvasionEval(fac);
+										cerr << "Score:" << score << endl;
+										if (maxScore < score)
+										{
+											maxScore = score;
+											id = fac.id;
+										}
+									}
+								}
+							}
+
+							cerr << "侵略:id=" << myfac.id << "->" << id << "=" << cyborg << endl;
+							if (id != Inf)
+								com += MoveCommand(myfac.id, id, cyborg);
+						}
 					}
+
 				}
 			}
 		}

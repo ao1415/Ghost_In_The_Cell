@@ -413,6 +413,8 @@ public:
 		const auto& enFactories = Share::GetEnFactory();
 		const auto& neFactories = Share::GetNeFactory();
 
+		const auto& factoryNumber = Share::GetFactoryNumber();
+
 		setRiskTable();
 
 		/*
@@ -425,7 +427,98 @@ public:
 		cerr << resetiosflags(ios_base::floatfield);
 		//*/
 
+		enemyRanges.fill(Inf);
+		for (const auto& f : enFactories)
+			enemyRanges[f.id] = 0;
+
+		//回数ループ
+		for (int i = 0; i < factoryNumber; i++)
+		{
+			//更新ループ
+			for (int j = 0; j < factoryNumber; j++)
+			{
+				for (int k = 0; k < factoryNumber; k++)
+				{
+					if (pathTable[j][k] == 1)
+					{
+						if (enemyRanges[k] != Inf)
+							enemyRanges[j] = min(enemyRanges[j], enemyRanges[k] + 1);
+					}
+				}
+			}
+		}
+
+		for (int i = 0; i < factoryNumber; i++)
+		{
+			cerr << "id=" << i << ", " << enemyRanges[i] << endl;
+		}
+
 		string com = WaitCommand();
+
+		for (const auto& myfact : myFactories)
+		{
+			int cyborg = myfact.number;
+
+			for (int i = 0; i < factoryNumber; i++)
+			{
+				if (pathTable[myfact.id][i] == 1)
+				{
+					if (factories[i].owns != My)
+					{
+						if (factories[i].production > 0)
+						{
+							if (cyborg > factories[i].number)
+							{
+								com += MoveCommand(myfact.id, i, factories[i].number + 1);
+								cyborg -= factories[i].number;
+							}
+						}
+					}
+				}
+			}
+			for (int i = 0; i < factoryNumber; i++)
+			{
+				if (pathTable[myfact.id][i] == 1)
+				{
+					if (factories[i].owns != My)
+					{
+						if (factories[i].production == 0)
+						{
+							if (cyborg > factories[i].number)
+							{
+								com += MoveCommand(myfact.id, i, factories[i].number + 1);
+								cyborg -= factories[i].number;
+							}
+						}
+					}
+				}
+			}
+
+			if (myfact.production < IncLimit)
+			{
+				if (cyborg >= IncCost)
+				{
+					com += IncCommand(myfact.id);
+				}
+			}
+			else
+			{
+				if (cyborg > 0)
+				{
+					for (int i = 0; i < factoryNumber; i++)
+					{
+						if (pathTable[myfact.id][i] == 1)
+						{
+							if (enemyRanges[i] < enemyRanges[myfact.id])
+							{
+								com += MoveCommand(myfact.id, i, cyborg);
+								break;
+							}
+						}
+					}
+				}
+			}
+		}
 
 		return com;
 	}
@@ -489,7 +582,7 @@ public:
 			check[m.end] = 1;
 			tree.insert(m.end);
 		}
-		/*
+		//*
 		for (const auto& vec : pathTable)
 		{
 			for (const auto& v : vec)
@@ -504,6 +597,7 @@ private:
 
 	RiskType riskTable;
 	TreeArray pathTable;
+	array<int, FactoryLimit> enemyRanges;
 
 	void setRiskTable() {
 

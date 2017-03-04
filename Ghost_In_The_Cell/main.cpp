@@ -470,7 +470,7 @@ public:
 							if (cyborg > factories[i].number)
 							{
 								com += MoveCommand(myfact.id, i, factories[i].number + 1);
-								cyborg -= factories[i].number;
+								cyborg -= factories[i].number + 1;
 							}
 						}
 					}
@@ -487,7 +487,7 @@ public:
 							if (cyborg > factories[i].number)
 							{
 								com += MoveCommand(myfact.id, i, factories[i].number + 1);
-								cyborg -= factories[i].number;
+								cyborg -= factories[i].number + 1;
 							}
 						}
 					}

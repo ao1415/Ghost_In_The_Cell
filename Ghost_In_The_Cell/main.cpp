@@ -270,6 +270,8 @@ struct Input {
 		cin >> number;
 		cin.ignore();
 
+		//cerr << number << endl;
+
 		Share::factoryNumber = number;
 
 		for (auto& d : Share::distance) d.fill(0);
@@ -277,6 +279,8 @@ struct Input {
 		int link;
 		cin >> link;
 		cin.ignore();
+
+		//cerr << link << endl;
 
 		//cerr << "Unit:" << number << ", Link:" << link << endl;
 
@@ -288,6 +292,9 @@ struct Input {
 			cin.ignore();
 			Share::distance[factory1][factory2] = distance;
 			Share::distance[factory2][factory1] = distance;
+
+			//cerr << factory1 << " " << factory2 << " " << distance << endl;
+
 		}
 
 		/*
@@ -394,6 +401,7 @@ class AI {
 public:
 
 	using RiskType = array<array<int, FactoryLimit>, DistanceLimit + 1>;
+	using TreeArray = array<array<int, FactoryLimit>, FactoryLimit>;
 
 	const string think() {
 
@@ -404,27 +412,6 @@ public:
 
 		const auto& enFactories = Share::GetEnFactory();
 		const auto& neFactories = Share::GetNeFactory();
-
-		const auto nextBaseEval = [&](const FactoryEntity& f) {
-			int enRange = Inf;
-			int myRange = Inf;
-			int pro = f.production;
-
-			for (const auto& fac : enFactories)
-				enRange = min(enRange, distance[f.id][fac.id]);
-			for (const auto& fac : myFactories)
-				myRange = min(myRange, distance[f.id][fac.id]);
-
-			const double er = enRange / 20.0;
-			const double mr = myRange / 20.0;
-			const double pr = pro / 3.0;
-
-			int flag = 0;
-			if (myFactories[0].number > f.number)
-				flag = 1;
-
-			return (int)((er - mr + pr) * 10000)*flag;
-		};
 
 		setRiskTable();
 
@@ -443,10 +430,80 @@ public:
 		return com;
 	}
 
+	void makeTree() {
+
+		struct Range {
+			int begin;
+			int end;
+			int range = Inf;
+			const bool operator<(const Range& o) const {
+				return range < o.range;
+			}
+		};
+
+		const auto& distance = Share::GetDistance();
+		const size_t FNum = Share::GetFactoryNumber();
+
+		for (auto& v : pathTable) v.fill(0);
+
+		set<int> tree;
+		tree.insert(0);
+
+		vector<int> check(FNum, 0);
+		check[0] = 1;
+
+		const auto getRange = [&](int n) {
+
+			Range range;
+			for (const auto& t : tree)
+			{
+				if (range.range > distance[t][n])
+				{
+					range.range = distance[t][n];
+					range.begin = t;
+					range.end = n;
+				}
+			}
+
+			return range;
+		};
+
+		while (tree.size() < FNum)
+		{
+			Range m;
+			for (size_t j = 1; j < FNum; j++)
+			{
+				if (check[j] == 0)
+				{
+					const auto r = getRange(j);
+					if (r < m)
+					{
+						m = r;
+					}
+				}
+			}
+
+			pathTable[m.begin][m.end] = 1;
+			pathTable[m.end][m.begin] = 1;
+
+			check[m.end] = 1;
+			tree.insert(m.end);
+		}
+		/*
+		for (const auto& vec : pathTable)
+		{
+			for (const auto& v : vec)
+				cerr << v << ",";
+			cerr << endl;
+		}
+		//*/
+	}
+
 private:
 
 
 	RiskType riskTable;
+	TreeArray pathTable;
 
 	void setRiskTable() {
 
@@ -480,6 +537,8 @@ int main() {
 
 	AI ai;
 	Stopwatch sw;
+
+	ai.makeTree();
 
 	while (true)
 	{

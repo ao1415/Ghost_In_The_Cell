@@ -503,6 +503,48 @@ public:
 			}
 			else
 			{
+				if (Share::GetBomb() > 0)
+				{
+					int id = Inf;
+					int score = 0;
+
+					const auto eval = [&](const FactoryEntity& e) {
+
+						const auto& myBomb = Share::GetMyBomb();
+
+						int s = 0;
+						s += e.production;
+						s += e.number / 20;
+
+						if (!myBomb.empty())
+						{
+							if (myBomb[0].target == e.id)
+							{
+								s = 0;
+							}
+						}
+
+						return s;
+					};
+
+					for (const auto& en : enFactories)
+					{
+						const int s = eval(en);
+
+						if (score < s)
+						{
+							score = s;
+							id = en.id;
+						}
+					}
+
+					if (id != Inf)
+					{
+						cerr << "!!!”š’e”­ŽË!!!, " << myfact.id << "->" << id << endl;
+						com += BombCommand(myfact.id, id);
+					}
+				}
+
 				if (cyborg > 0)
 				{
 					for (int i = 0; i < factoryNumber; i++)
